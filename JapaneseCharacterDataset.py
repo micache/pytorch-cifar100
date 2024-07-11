@@ -44,21 +44,11 @@ class JapaneseCharacterDataset(Dataset):
 
 if __name__ == '__main__':
 
-    # Define transformations for grayscale images
+    # Define transformations for images
     transform = transforms.Compose([
-        transforms.RandomCrop(32, padding=4),
-        transforms.RandomHorizontalFlip(),
-        transforms.RandomRotation(15),
         transforms.ToTensor()
     ])
 
     # Create the dataset and DataLoader for training data
-    train_dataset = JapaneseCharacterDataset(root_dir=os.getcwd() + '\\raw\\', dataset_type='train', transform=transform)
+    train_dataset = JapaneseCharacterDataset(root_dir=os.getcwd() + '/raw/', dataset_type='train', transform=transform)
     train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=2)
-
-    # Create the dataset and DataLoader for test data
-    test_dataset = JapaneseCharacterDataset(root_dir=os.getcwd() + '\\raw\\', dataset_type='test', transform=transform)
-    test_dataloader = DataLoader(test_dataset, batch_size=16, shuffle=False, num_workers=2)
-
-    # Verify the datasets
-    print(train_dataset.labels)
