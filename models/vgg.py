@@ -13,7 +13,7 @@ class VGG(nn.Module):
         super(VGG, self).__init__()
         self.features = features
         self.classifier = nn.Sequential(
-            nn.Linear(512 * 2 * 2, 4096),  # Adjust input size according to the final feature map size
+            nn.Linear(512 / 4 * 2 * 2, 4096),  # Adjust input size according to the final feature map size
             nn.ReLU(inplace=True),
             nn.Dropout(),
             nn.Linear(4096, 4096),
@@ -35,12 +35,13 @@ def make_layers(cfg, batch_norm=False):
         if v == 'M':
             layers += [nn.MaxPool2d(kernel_size=2, stride=2)]
         else:
-            conv2d = nn.Conv2d(in_channels, v, kernel_size=3, padding=1)
+            real_v = v / 4
+            conv2d = nn.Conv2d(in_channels, real_v, kernel_size=3, padding=1)
             if batch_norm:
-                layers += [conv2d, nn.BatchNorm2d(v), nn.ReLU(inplace=True)]
+                layers += [conv2d, nn.BatchNorm2d(real_v), nn.ReLU(inplace=True)]
             else:
                 layers += [conv2d, nn.ReLU(inplace=True)]
-            in_channels = v
+            in_channels = real_v
     return nn.Sequential(*layers)
 
 def vgg11_bn():
