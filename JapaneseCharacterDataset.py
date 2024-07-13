@@ -1,7 +1,8 @@
-import os
+import os, csv
 from PIL import Image
 from torch.utils.data import Dataset, DataLoader
 import torchvision.transforms as transforms
+import numpy as np
 
 class JapaneseCharacterDataset(Dataset):
     def __init__(self, root_dir, dataset_type='train', transform=None):
@@ -37,10 +38,28 @@ class JapaneseCharacterDataset(Dataset):
         image = Image.open(img_path).convert('L')  # Convert to grayscale
         label = self.labels[idx]
         
+        seq_label = self.pad_label(self.parse_labels_file(self.root_dir + 'labels.txt').get(label))
+
         if self.transform:
             image = self.transform(image)
         
-        return image, label
+        return image, label, seq_label
+    
+    def pad_label(self, label):
+        padded_label = [ord(char) for char in label] + [self.pad_idx] * (self.max_seq_length - len(label))
+        return np.array(padded_label)
+    
+    def parse_labels_file(file_path):
+        id_to_sequence = {}
+        with open(file_path, 'r', encoding='utf-8') as file:
+            reader = csv.reader(file, delimiter=' ')
+            next(reader)  # Skip header
+            for row in reader:
+                class_id = int(row[0])
+                cangjie_sequence = row[4]  # Assuming the Cangjie sequence is in the 4th column
+                id_to_sequence[class_id] = cangjie_sequence
+        
+        return id_to_sequence
 
 if __name__ == '__main__':
 
@@ -52,3 +71,7 @@ if __name__ == '__main__':
     # Create the dataset and DataLoader for training data
     train_dataset = JapaneseCharacterDataset(root_dir=os.getcwd() + '/raw/', dataset_type='train', transform=transform)
     train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=2)
+
+    for image, label, seq in train_dataloader:
+        print(image + ' ' + label + ' ' + seq)
+        break
