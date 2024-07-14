@@ -5,15 +5,18 @@ import torchvision.transforms as transforms
 import numpy as np
 
 class JapaneseCharacterDataset(Dataset):
-    def __init__(self, root_dir, dataset_type='train', transform=None):
+    def __init__(self, root_dir, dataset_type='train', transform=None, max_seq_length=5, pad_idx=26):
         """
         Args:
             root_dir (string): Directory with all the images.
             dataset_type (string): 'train' or 'test' to indicate the dataset type.
             transform (callable, optional): Optional transform to be applied on a sample.
         """
+        self.ov_root = root_dir
         self.root_dir = os.path.join(root_dir, dataset_type)
         self.transform = transform
+        self.max_seq_length = max_seq_length
+        self.pad_idx = pad_idx
         self.image_files = []
         self.labels = []
         self.classes = []
@@ -38,7 +41,7 @@ class JapaneseCharacterDataset(Dataset):
         image = Image.open(img_path).convert('L')  # Convert to grayscale
         label = self.labels[idx]
         
-        seq_label = self.pad_label(self.parse_labels_file(self.root_dir + 'labels.txt').get(label))
+        seq_label = self.pad_label(self.parse_labels_file(self.ov_root + '/labels.txt').get(label))
 
         if self.transform:
             image = self.transform(image)
@@ -46,10 +49,10 @@ class JapaneseCharacterDataset(Dataset):
         return image, label, seq_label
     
     def pad_label(self, label):
-        padded_label = [ord(char) for char in label] + [self.pad_idx] * (self.max_seq_length - len(label))
+        padded_label = [(ord(char) - 97) for char in label] + [self.pad_idx] * (self.max_seq_length - len(label))
         return np.array(padded_label)
     
-    def parse_labels_file(file_path):
+    def parse_labels_file(self, file_path):
         id_to_sequence = {}
         with open(file_path, 'r', encoding='utf-8') as file:
             reader = csv.reader(file, delimiter=' ')
@@ -70,8 +73,10 @@ if __name__ == '__main__':
 
     # Create the dataset and DataLoader for training data
     train_dataset = JapaneseCharacterDataset(root_dir=os.getcwd() + '/raw/', dataset_type='train', transform=transform)
+    print (len(train_dataset))
     train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=2)
 
     for image, label, seq in train_dataloader:
-        print(image + ' ' + label + ' ' + seq)
+        print(label[0])
+        print(seq[0])
         break
