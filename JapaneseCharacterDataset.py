@@ -77,6 +77,8 @@ if __name__ == '__main__':
     train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=2)
 
     for image, label, seq in train_dataloader:
-        print(label[0])
+        print(seq.size(0))
         print(seq[0])
+        true_seq = ''.join([chr(char + 97) if char != 26 else '!' for char in seq[0].cpu().numpy()])
+        print(true_seq)
         break

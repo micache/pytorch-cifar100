@@ -9,7 +9,7 @@ cfg = {
 }
 
 class VGG(nn.Module):
-    def __init__(self, features, num_classes=100):
+    def __init__(self, features, num_classes):
         super(VGG, self).__init__()
         self.features = features
         self.classifier = nn.Sequential(
@@ -50,8 +50,8 @@ def vgg11_bn():
 def vgg13_bn():
     return VGG(make_layers(cfg['B'], batch_norm=True))
 
-def vgg16_bn():
-    return VGG(make_layers(cfg['D'], batch_norm=True), num_classes=952)
+def vgg16_bn(num_classes):
+    return VGG(make_layers(cfg['D'], batch_norm=True), num_classes=num_classes)
 
 def vgg19_bn():
     return VGG(make_layers(cfg['E'], batch_norm=True))

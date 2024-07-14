@@ -12,6 +12,7 @@ import argparse
 import time
 from datetime import datetime
 
+import editdistance
 import numpy as np
 import torch
 import torch.nn as nn
@@ -26,19 +27,22 @@ from conf import settings
 from utils import get_network, get_training_dataloader, get_test_dataloader, WarmUpLR, \
     most_recent_folder, most_recent_weights, last_epoch, best_acc_weights
 
+from CombinedModel import CombinedModel
+
 def train(epoch):
 
     start = time.time()
     net.train()
-    for batch_index, (images, labels) in enumerate(cifar100_training_loader):
+    for batch_index, (images, class_labels, seq_labels) in enumerate(cifar100_training_loader):
 
         if args.gpu:
-            labels = labels.cuda()
+            class_labels = class_labels.cuda()
+            seq_labels = seq_labels.cuda()
             images = images.cuda()
 
         optimizer.zero_grad()
-        outputs = net(images)
-        loss = loss_function(outputs, labels)
+        class_output, seq_output = net(images)
+        loss = loss_function(class_output, class_labels, seq_output, seq_labels, class_criterion, seq_criterion)
         loss.backward()
         optimizer.step()
 
@@ -82,19 +86,48 @@ def eval_training(epoch=0, tb=True):
 
     test_loss = 0.0 # cost function error
     correct = 0.0
+    total_levenshtein_distance= 0
+    total_length = 0
 
-    for (images, labels) in cifar100_test_loader:
+    for (images, class_labels, seq_labels) in cifar100_test_loader:
 
         if args.gpu:
+            class_labels = class_labels.cuda()
+            seq_labels = seq_labels.cuda()
             images = images.cuda()
-            labels = labels.cuda()
 
-        outputs = net(images)
-        loss = loss_function(outputs, labels)
+        class_output, seq_output = net(images)
+        loss = loss_function(class_output, class_labels, seq_output, seq_labels, class_criterion, seq_criterion)
 
         test_loss += loss.item()
-        _, preds = outputs.max(1)
-        correct += preds.eq(labels).sum()
+        # Class prediction accuracy
+        _, class_preds = class_output.max(1)
+        correct += class_preds.eq(class_labels).sum().item()
+        
+        # Reshape seq_output from (batch_size, 135) to (batch_size, 5, 27)
+        batch_size = seq_output.size(0)
+        seq_output = seq_output.view(batch_size, 5, 27)
+        seq_preds = seq_output.argmax(dim=2)
+
+        pad_idx = 26 # character '!'
+        for i in range(seq_labels.size(0)):
+            pred_seq = ''.join([chr(char + 97) if char != pad_idx else '!' for char in seq_preds[i].cpu().numpy()])
+            true_seq = ''.join([chr(char + 97) if char != pad_idx else '!' for char in seq_labels[i].cpu().numpy()])
+            
+            levenshtein_dist = 0
+            if (pred_seq == 'zc!!!' and true_seq == 'zc!!!'):   #both are hiragana
+                levenshtein_dist = 1 - (class_preds[i].eq(class_labels[i]).sum())
+            elif (pred_seq == 'zc!!!' and true_seq != 'zc!!!'):  #pred is hiragana
+                levenshtein_dist = len(true_seq.replace('!', ''))
+            elif (pred_seq != 'zc!!!' and true_seq == 'zc!!!'):  #true is hiragana
+                levenshtein_dist = len(pred_seq.replace('!', ''))
+            else: 
+                levenshtein_dist = editdistance.eval(pred_seq, true_seq)
+            
+            total_levenshtein_distance += levenshtein_dist
+            total_length += len(true_seq.replace('!', ''))
+
+    seq_accuracy = 1 - (float(total_levenshtein_distance) / total_length)
 
     finish = time.time()
     if args.gpu:
@@ -104,7 +137,7 @@ def eval_training(epoch=0, tb=True):
     print('Test set: Epoch: {}, Average loss: {:.4f}, Accuracy: {:.4f}, Time consumed:{:.2f}s'.format(
         epoch,
         test_loss / len(cifar100_test_loader.dataset),
-        correct.float() / len(cifar100_test_loader.dataset),
+        seq_accuracy,
         finish - start
     ))
     print()
@@ -112,9 +145,23 @@ def eval_training(epoch=0, tb=True):
     #add informations to tensorboard
     if tb:
         writer.add_scalar('Test/Average loss', test_loss / len(cifar100_test_loader.dataset), epoch)
-        writer.add_scalar('Test/Accuracy', correct.float() / len(cifar100_test_loader.dataset), epoch)
+        writer.add_scalar('Test/Accuracy', seq_accuracy, epoch)
 
-    return correct.float() / len(cifar100_test_loader.dataset)
+    return seq_accuracy
+
+def loss_function(class_output, class_target, seq_output, seq_target, class_criterion, seq_criterion, alpha=0.5):
+    class_loss = class_criterion(class_output, class_target)
+    
+    # Reshape seq_output from (batch_size, 135) to (batch_size, 5, 27)
+    batch_size = seq_output.size(0)
+    seq_output = seq_output.view(batch_size, 5, 27)
+    
+    # Reshape seq_output and seq_target for the loss function
+    seq_output = seq_output.view(-1, seq_output.size(-1))
+    seq_target = seq_target.view(-1)
+    
+    seq_loss = seq_criterion(seq_output, seq_target)
+    return alpha * class_loss + (1 - alpha) * seq_loss
 
 if __name__ == '__main__':
 
@@ -127,7 +174,8 @@ if __name__ == '__main__':
     parser.add_argument('-resume', action='store_true', default=False, help='resume training')
     args = parser.parse_args()
 
-    net = get_network(args)
+    from models.vgg import vgg16_bn
+    net = CombinedModel(vgg16_bn(num_classes=952).cuda(), vgg16_bn(num_classes=135).cuda())
 
     #data preprocessing:
     cifar100_training_loader = get_training_dataloader(
@@ -147,7 +195,9 @@ if __name__ == '__main__':
     )
     
     # Forward pass
-    loss_function = nn.CrossEntropyLoss()
+    class_criterion = nn.CrossEntropyLoss()
+    seq_criterion = nn.CrossEntropyLoss()
+
     optimizer = optim.SGD(net.parameters(), lr=args.lr, momentum=0.9, weight_decay=5e-4)
     train_scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=settings.MILESTONES, gamma=0.2) #learning rate decay
     iter_per_epoch = len(cifar100_training_loader)
