@@ -12,6 +12,7 @@ class JapaneseCharacterDataset(Dataset):
             dataset_type (string): 'train' or 'test' to indicate the dataset type.
             transform (callable, optional): Optional transform to be applied on a sample.
         """
+        self.dataset_type = dataset_type
         self.ov_root = root_dir
         self.root_dir = os.path.join(root_dir, dataset_type)
         self.transform = transform
@@ -31,7 +32,7 @@ class JapaneseCharacterDataset(Dataset):
                 for file_name in os.listdir(label_dir):
                     if file_name.endswith('.png'):
                         self.image_files.append(os.path.join(label_dir, file_name))
-                        self.labels.append(class_index)
+                        self.labels.append(int(label))
 
     def __len__(self):
         return len(self.image_files)
@@ -40,12 +41,12 @@ class JapaneseCharacterDataset(Dataset):
         img_path = self.image_files[idx]
         image = Image.open(img_path).convert('L')  # Convert to grayscale
         label = self.labels[idx]
-        
+
         seq_label = self.pad_label(self.parse_labels_file(self.ov_root + '/labels.txt').get(label))
 
         if self.transform:
             image = self.transform(image)
-        
+            
         return image, label, seq_label
     
     def pad_label(self, label):
@@ -72,12 +73,14 @@ if __name__ == '__main__':
     ])
 
     # Create the dataset and DataLoader for training data
-    train_dataset = JapaneseCharacterDataset(root_dir=os.getcwd() + '/raw/', dataset_type='train', transform=transform)
-    print (len(train_dataset))
+    train_dataset = JapaneseCharacterDataset(root_dir=os.getcwd() + '/raw/', dataset_type='val', transform=transform)
+    print (train_dataset[0][2])
     train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=2)
 
+    exit(0)
+
     for image, label, seq in train_dataloader:
-        print(seq.size(0))
+        print(image[0].sum())
         print(seq[0])
         true_seq = ''.join([chr(char + 97) if char != 26 else '!' for char in seq[0].cpu().numpy()])
         print(true_seq)

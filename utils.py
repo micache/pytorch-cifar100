@@ -213,6 +213,29 @@ def get_test_dataloader(mean, std, batch_size=16, num_workers=2, shuffle=True):
 
     return cifar100_test_loader
 
+def get_val_dataloader(mean, std, batch_size=16, num_workers=2, shuffle=True):
+    """ return valdidating dataloader
+    Args:
+        mean: mean of cifar100 test dataset
+        std: std of cifar100 test dataset
+        path: path to cifar100 test python dataset
+        batch_size: dataloader batchsize
+        num_workers: dataloader num_works
+        shuffle: whether to shuffle
+    Returns: cifar100_test_loader:torch dataloader object
+    """
+
+    transform = transforms.Compose([
+        transforms.ToTensor()
+    ])
+    #cifar100_test = CIFAR100Test(path, transform=transform_test)
+    #cifar100_test = torchvision.datasets.CIFAR100(root='./data', train=False, download=True, transform=transform_test)
+    cifar100_test = JCD(root_dir=os.getcwd() + '/raw/', dataset_type='val', transform=transform)
+    cifar100_test_loader = DataLoader(
+        cifar100_test, shuffle=shuffle, num_workers=num_workers, batch_size=batch_size)
+
+    return cifar100_test_loader
+
 def compute_mean_std(cifar100_dataset):
     """compute the mean and std of cifar100 dataset
     Args:

@@ -18,18 +18,23 @@ import torchvision.transforms as transforms
 from torch.utils.data import DataLoader
 
 from conf import settings
-from utils import get_network, get_test_dataloader
+from utils import get_network, get_val_dataloader
 
 from CombinedModel import CombinedModel
 
 def levi_distance(pred_seq, true_seq, class_diff, pad_idx=26):
     pred_seq = ''.join([chr(char + 97) if char != pad_idx else '!' for char in pred_seq.cpu().numpy()])
     true_seq = ''.join([chr(char + 97) if char != pad_idx else '!' for char in true_seq.cpu().numpy()])
-            
+
+    #print (pred_seq)
+    #print (true_seq)        
+    
     if (pred_seq == 'zc!!!' and true_seq == 'zc!!!'):   #both are hiragana
         return 1 - class_diff
-    elif (pred_seq == 'zc!!!' or true_seq == 'zc!!!'):  #either pred or true is hiragana
-        return 5
+    elif (pred_seq == 'zc!!!' and true_seq != 'zc!!!'):  #pred is hiragana
+        return len(true_seq.replace('!', ''))
+    elif (pred_seq != 'zc!!!' and true_seq == 'zc!!!'):  #true is hiragana
+        return len(pred_seq.replace('!', ''))
     else: 
         return editdistance.eval(pred_seq, true_seq)
 
@@ -45,7 +50,7 @@ if __name__ == '__main__':
     from models.vgg import vgg16_bn
     net = CombinedModel(vgg16_bn(num_classes=952).cuda(), vgg16_bn(num_classes=135).cuda())
 
-    cifar100_test_loader = get_test_dataloader(
+    cifar100_test_loader = get_val_dataloader(
         settings.CIFAR100_TRAIN_MEAN,
         settings.CIFAR100_TRAIN_STD,
         num_workers=4,
@@ -53,7 +58,7 @@ if __name__ == '__main__':
     )
 
     net.load_state_dict(torch.load(args.weights))
-    print(net)
+    #print(net)
     net.eval()
 
     total_levenshtein_distance = 0.0
@@ -61,7 +66,7 @@ if __name__ == '__main__':
 
     with torch.no_grad():
         for n_iter, (image, class_label, seq_label) in enumerate(cifar100_test_loader):
-            print("iteration: {}\ttotal {} iterations".format(n_iter + 1, len(cifar100_test_loader)))
+            #print("iteration: {}\ttotal {} iterations".format(n_iter + 1, len(cifar100_test_loader)))
 
             if args.gpu:
                 image = image.cuda()
@@ -75,9 +80,12 @@ if __name__ == '__main__':
             seq_preds = seq_output.argmax(dim=2)
 
             for i in range(seq_label.size(0)):
+                if (class_label[i] == torch.tensor([0]).cuda() and image[i].sum() < 870):
+                    print (image[i].sum())
                 levenshtein_dist = levi_distance(seq_preds[i], seq_label[i], class_pred[i].eq(class_label[i]).sum())
                 total_levenshtein_distance += levenshtein_dist
-                total_length += 5
+                total_length += (seq_label[i][seq_label[i] != 26]).size(0)
+                #exit(0)
 
     avg_levenshtein_distance = float(total_levenshtein_distance) / total_length
 
