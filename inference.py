@@ -17,7 +17,6 @@ def load_image(image_path, transform=None):
     image = Image.open(image_path).convert('L')
     if transform is not None:
         image = transform(image)
-    print (image.sum())
     image = image.unsqueeze(0)  # Add batch dimension
     return image
 
@@ -28,8 +27,6 @@ def infer_image(image_path, net, device):
     
     image = load_image(image_path, transform)
     image = image.to(device)
-    
-    print (image)
 
     net.eval()
     with torch.no_grad():
@@ -37,7 +34,6 @@ def infer_image(image_path, net, device):
         _, class_pred = class_output.max(1)
         
         batch_size = seq_output.size(0)
-        print (batch_size)
         seq_output = seq_output.view(batch_size, 5, 27)  # Adjust based on actual sequence length and vocab size
         seq_preds = seq_output.argmax(dim=2)
 
@@ -61,7 +57,7 @@ def main():
     net.load_state_dict(torch.load(args.weights))
 
     pred_seq, pred_class = infer_image(args.image, net, device)
-    print(f'Predicted Sequence: {pred_seq}')
+    print(f'Predicted Sequence: {pred_seq.replace('!', '')}')
     print(pred_class)
 
 if __name__ == '__main__':

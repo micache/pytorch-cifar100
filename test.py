@@ -44,7 +44,7 @@ if __name__ == '__main__':
     parser.add_argument('-net', type=str, required=True, help='net type')
     parser.add_argument('-weights', type=str, required=True, help='the weights file you want to test')
     parser.add_argument('-gpu', action='store_true', default=False, help='use gpu or not')
-    parser.add_argument('-b', type=int, default=16, help='batch size for dataloader')
+    parser.add_argument('-b', type=int, default=64, help='batch size for dataloader')
     args = parser.parse_args()
 
     from models.vgg import vgg16_bn
@@ -66,7 +66,7 @@ if __name__ == '__main__':
 
     with torch.no_grad():
         for n_iter, (image, class_label, seq_label) in enumerate(cifar100_test_loader):
-            #print("iteration: {}\ttotal {} iterations".format(n_iter + 1, len(cifar100_test_loader)))
+            print("iteration: {}\ttotal {} iterations".format(n_iter + 1, len(cifar100_test_loader)))
 
             if args.gpu:
                 image = image.cuda()
@@ -80,12 +80,9 @@ if __name__ == '__main__':
             seq_preds = seq_output.argmax(dim=2)
 
             for i in range(seq_label.size(0)):
-                if (class_label[i] == torch.tensor([0]).cuda() and image[i].sum() < 870):
-                    print (image[i].sum())
                 levenshtein_dist = levi_distance(seq_preds[i], seq_label[i], class_pred[i].eq(class_label[i]).sum())
                 total_levenshtein_distance += levenshtein_dist
                 total_length += (seq_label[i][seq_label[i] != 26]).size(0)
-                #exit(0)
 
     avg_levenshtein_distance = float(total_levenshtein_distance) / total_length
 
