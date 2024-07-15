@@ -181,4 +181,3 @@ better result.
 |cifar100|stochasticdepth101|42.69M|21.28|5.39|60|60|40|40|200|
 
 
-

@@ -34,11 +34,3 @@ LOG_DIR = 'runs'
 
 #save weights file per SAVE_EPOCH epoch
 SAVE_EPOCH = 1
-
-
-
-
-
-
-
-

@@ -27,7 +27,7 @@ class JapaneseCharacterDataset(Dataset):
                 for file_name in os.listdir(label_dir):
                     if file_name.endswith('.png'):
                         self.image_files.append(os.path.join(label_dir, file_name))
-                        self.labels.append(class_index)
+                        self.labels.append(int(label))
 
     def __len__(self):
         return len(self.image_files)
@@ -36,7 +36,7 @@ class JapaneseCharacterDataset(Dataset):
         img_path = self.image_files[idx]
         image = Image.open(img_path).convert('L')  # Convert to grayscale
         label = self.labels[idx]
-        
+
         if self.transform:
             image = self.transform(image)
         
@@ -51,4 +51,5 @@ if __name__ == '__main__':
 
     # Create the dataset and DataLoader for training data
     train_dataset = JapaneseCharacterDataset(root_dir=os.getcwd() + '/raw/', dataset_type='train', transform=transform)
+    print (train_dataset[0])
     train_dataloader = DataLoader(train_dataset, batch_size=16, shuffle=True, num_workers=2)

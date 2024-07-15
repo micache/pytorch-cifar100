@@ -28,7 +28,7 @@ class VGG(nn.Module):
         x = self.classifier(x)
         return x
 
-def make_layers(cfg, batch_norm=False):
+def make_layers(cfg, batch_norm=True):
     layers = []
     in_channels = 1
     for v in cfg:
@@ -45,16 +45,16 @@ def make_layers(cfg, batch_norm=False):
     return nn.Sequential(*layers)
 
 def vgg11_bn():
-    return VGG(make_layers(cfg['A'], batch_norm=True))
+    return VGG(make_layers(cfg['A']))
 
 def vgg13_bn():
-    return VGG(make_layers(cfg['B'], batch_norm=True))
+    return VGG(make_layers(cfg['B']))
 
 def vgg16_bn():
-    return VGG(make_layers(cfg['D'], batch_norm=True), num_classes=952)
+    return VGG(make_layers(cfg['D']), num_classes=952)
 
 def vgg19_bn():
-    return VGG(make_layers(cfg['E'], batch_norm=True))
+    return VGG(make_layers(cfg['E']))
 
 if __name__ == '__main__':
     # Example usage:
