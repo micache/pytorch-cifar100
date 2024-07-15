@@ -49,7 +49,7 @@ class JapaneseCharacterDataset(Dataset):
         padded_label = [ord(char) for char in label] + [self.pad_idx] * (self.max_seq_length - len(label))
         return np.array(padded_label)
     
-    def parse_labels_file(file_path):
+    def parse_labels_file(self, file_path):
         id_to_sequence = {}
         with open(file_path, 'r', encoding='utf-8') as file:
             reader = csv.reader(file, delimiter=' ')
